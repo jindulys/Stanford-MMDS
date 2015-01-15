@@ -1,4 +1,7 @@
 import math
+import sys
+import random
+from collections import defaultdict
 
 class HashFunc(object):
     '''universal hash function: ((a*x) % p) % n'''
@@ -38,10 +41,48 @@ def minhash(doc_shingles_dct, all_shingles_lst, hash_func_lst):
     print "\tsorting columns..."
     doc_column_dct = sort_documents(doc_shingles_dct, all_shingles_lst)
 
+    print "\ttraversing rows..."
+    for i in xrange(len(all_shingles_lst)):
+        permutation_lst = []
+        # compute all permutations for this row and save them to be used by all columns.
+        # this is import since it avoids computing these permutations again for each column.
+
+        for hash_func in hash_func_lst:
+            permutation_lst.append(hash_func(i))
+
+        for doc_id, column_lst in doc_column_dct.iteritems():
+            if column_lst[i]:
+                for i, permutation in enumerate(permutation_lst):
+                    doc_signature_dct[doc_id][i] = min(doc_signature_dct[doc_id][i], permutation)
+    return dict(doc_signature_dct)
+
+
+
 def sort_documents(doc_shingles_dct, all_shingles_lst):
     doc_binary_dct = {}
     i = 0
-    for doc_id
+    for doc_id, shingles_lst in doc_shingles_dct.iteritems():
+        sorted_binary_lst = sort_document(shingles_lst, all_shingles_lst)
+        doc_binary_dct[doc_id] = sorted_binary_lst
+        i += 1
+        if i%1000 == 0:
+            print '\t\tsorted %i documents'%i
+    return doc_binary_dct
+
+def sort_document(shingles_lst, all_shingles_lst):
+    sorted_binary_lst = []
+    shingles_lst.sort()
+    j = 0
+    for shingle in all_shingles_lst:
+        if (j < len(shingles_lst)):
+            if shingle == shingles_lst[j]:
+                sorted_binary_lst.append(True)
+                j += 1
+            else:
+                sorted_binary_lst.append(False)
+        else:
+            sorted_binary_lst.append(False)
+    return sorted_binary_lst
 
 
 def shingles_in_lst(word_lst, k):
