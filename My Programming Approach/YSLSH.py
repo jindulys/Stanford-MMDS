@@ -33,7 +33,7 @@ class HashFunc(object):
                 return False
 
         return True
-
+'''
 def minhash(doc_shingles_dct, all_shingles_lst, hash_func_lst):
     nbr_permutations = len(hash_func_lst)
     doc_signature_dct = defaultdict(lambda:[sys.maxint] * nbr_permutations)
@@ -55,6 +55,73 @@ def minhash(doc_shingles_dct, all_shingles_lst, hash_func_lst):
                 for i, permutation in enumerate(permutation_lst):
                     doc_signature_dct[doc_id][i] = min(doc_signature_dct[doc_id][i], permutation)
     return dict(doc_signature_dct)
+'''
+
+def minhash(doc_shingles_dct, all_shingles_lst, hash_func_lst):
+    nbr_permutations = len(hash_func_lst)
+    doc_signature_dct =  defaultdict(lambda:[sys.maxint]*nbr_permutations)
+    #sort all columns
+    print "\tsorting columns..."
+    doc_column_dct = sort_documents(doc_shingles_dct, all_shingles_lst)
+    #for each row
+    print "\ttraversing rows..."
+    for i in xrange(len(all_shingles_lst)):
+        permutation_lst = []
+        #Compute all permutations for this row and save them to be used by all columns.
+        #This is important since it avoids computing these permutations again for each column.
+        for hash_func in hash_func_lst:
+            permutation_lst.append(hash_func(i))
+        #for each column
+        for doc_id, column_lst in doc_column_dct.iteritems():
+            #if this row has a 1
+            if column_lst[i]:
+                #update signature values
+                for j, permutation in enumerate(permutation_lst):
+                    doc_signature_dct[doc_id][j] = min(permutation, doc_signature_dct[doc_id][j])
+    return dict(doc_signature_dct)
+
+
+def LSH(doc_signature_dct, nbr_of_bands):
+    '''locality sensitive hashing dividing signatures into bands'''
+    
+    nbr_of_permutations = len(doc_signature_dct.itervalues().next())
+    rows_per_band = nbr_of_permutations / nbr_of_bands
+
+    if rows_per_band != int(rows_per_band):
+        raise ValueError("nbr of bands is not a multiple of nbr of permutations")
+
+    buckets_dct_lst = [defaultdict(list) for x in range(nbr_of_bands)]
+
+    for doc_id, signature in doc_signature_dct.iteritems():
+        for j in range(nbr_of_bands):
+            band = signature[j*rows_per_band:(j+1)*rows_per_band]
+            bucket = ''.join(str(e) for e in band)
+            buckets_dct_lst[j][bucket].append(doc_id)
+    m = 0
+    for key in buckets_dct_lst[0].keys():
+        if m < 500:
+            print key + '\n'
+            print buckets_dct_lst[0][key]
+        else:
+            break
+        m += 1
+
+    return buckets_dct_lst
+
+
+def look_for_pairs(buckets_dct_lst):
+
+    '''Here in any of the band they both are same we defined it is same'''
+    pairs_dict = {}
+    for buckets in buckets_dct_lst:
+        for key, docs_lst in buckets.iteritems():
+            n = len(docs_lst)
+            if n > 1:
+                for i in xrange(n-1):
+                    #for j in xrange(1,n):   --> here I made a mistake
+                    for j in xrange(i+1, n):
+                        pairs_dict[(docs_lst[i], docs_lst[j])] = None
+    return pairs_dict.keys()
 
 
 
@@ -125,6 +192,15 @@ def process_docs(file_location, k, nbr_of_bands):
     print "Running minhash..."
     doc_signature_dict = minhash(doc_shingles_dct, all_shingles_lst, permutation_hash_func_lst)
 
+    print "Running LSH..."
+    buckets_dct_lst = LSH(doc_signature_dict, nbr_of_bands)
+
+    print "Getting Candidate Pairs..."
+    pairs_lst = look_for_pairs(buckets_dct_lst)
+
+    return pairs_lst
+
+
 if __name__ == "__main__":
     file_location = 'documents.txt'
     k = 3 #k value in k-gram for shingles
@@ -132,3 +208,5 @@ if __name__ == "__main__":
     rows_per_band = 8
     nbr_permutations = nbr_of_bands * rows_per_band
     pairs_lst = process_docs(file_location, k, nbr_of_bands)
+
+    print "Found %i probable duplicated documents" % len(pairs_lst)
