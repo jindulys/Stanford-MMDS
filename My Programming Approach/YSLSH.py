@@ -33,7 +33,7 @@ class HashFunc(object):
                 return False
 
         return True
-'''
+
 def minhash(doc_shingles_dct, all_shingles_lst, hash_func_lst):
     nbr_permutations = len(hash_func_lst)
     doc_signature_dct = defaultdict(lambda:[sys.maxint] * nbr_permutations)
@@ -52,38 +52,13 @@ def minhash(doc_shingles_dct, all_shingles_lst, hash_func_lst):
 
         for doc_id, column_lst in doc_column_dct.iteritems():
             if column_lst[i]:
-                for i, permutation in enumerate(permutation_lst):
-                    doc_signature_dct[doc_id][i] = min(doc_signature_dct[doc_id][i], permutation)
-    return dict(doc_signature_dct)
-'''
-
-def minhash(doc_shingles_dct, all_shingles_lst, hash_func_lst):
-    nbr_permutations = len(hash_func_lst)
-    doc_signature_dct =  defaultdict(lambda:[sys.maxint]*nbr_permutations)
-    #sort all columns
-    print "\tsorting columns..."
-    doc_column_dct = sort_documents(doc_shingles_dct, all_shingles_lst)
-    #for each row
-    print "\ttraversing rows..."
-    for i in xrange(len(all_shingles_lst)):
-        permutation_lst = []
-        #Compute all permutations for this row and save them to be used by all columns.
-        #This is important since it avoids computing these permutations again for each column.
-        for hash_func in hash_func_lst:
-            permutation_lst.append(hash_func(i))
-        #for each column
-        for doc_id, column_lst in doc_column_dct.iteritems():
-            #if this row has a 1
-            if column_lst[i]:
-                #update signature values
                 for j, permutation in enumerate(permutation_lst):
-                    doc_signature_dct[doc_id][j] = min(permutation, doc_signature_dct[doc_id][j])
+                    doc_signature_dct[doc_id][j] = min(doc_signature_dct[doc_id][j], permutation)
     return dict(doc_signature_dct)
-
 
 def LSH(doc_signature_dct, nbr_of_bands):
     '''locality sensitive hashing dividing signatures into bands'''
-    
+
     nbr_of_permutations = len(doc_signature_dct.itervalues().next())
     rows_per_band = nbr_of_permutations / nbr_of_bands
 
@@ -97,15 +72,6 @@ def LSH(doc_signature_dct, nbr_of_bands):
             band = signature[j*rows_per_band:(j+1)*rows_per_band]
             bucket = ''.join(str(e) for e in band)
             buckets_dct_lst[j][bucket].append(doc_id)
-    m = 0
-    for key in buckets_dct_lst[0].keys():
-        if m < 500:
-            print key + '\n'
-            print buckets_dct_lst[0][key]
-        else:
-            break
-        m += 1
-
     return buckets_dct_lst
 
 
